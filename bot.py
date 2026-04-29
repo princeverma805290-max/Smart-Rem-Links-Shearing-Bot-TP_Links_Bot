@@ -1,11 +1,13 @@
 """
 bot.py
 ======
-Main entry point.
+Main entry point with fake web server for Render.
 """
 
 import asyncio
 import logging
+import os
+from aiohttp import web
 
 from pyrogram import Client, idle
 import config.settings as cfg
@@ -38,11 +40,29 @@ register_channel_cmds(app)
 register_admin_cmds(app)
 
 
-# ── Startup ──────────────────────────────────────────
+# ── Fake web server (Render ke liye) ─────────────────
+async def handle(request):
+    return web.Response(text="Bot is running! ✅")
+
+async def start_web_server():
+    port = int(os.environ.get("PORT", 8080))
+    web_app = web.Application()
+    web_app.router.add_get("/", handle)
+    runner = web.AppRunner(web_app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logger.info(f"✅ Web server started on port {port}")
+
+
+# ── Main ─────────────────────────────────────────────
 async def main():
+    # Start fake web server
+    await start_web_server()
+
+    # Start bot
     await app.start()
 
-    # Auto-fetch bot username
     me               = await app.get_me()
     cfg.BOT_USERNAME = me.username
 
