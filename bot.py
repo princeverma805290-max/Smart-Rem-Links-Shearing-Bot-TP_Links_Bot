@@ -39,6 +39,10 @@ register_join_request(app)
 register_channel_cmds(app)
 register_admin_cmds(app)
 
+@app.on_message()
+async def debug_all(client, message):
+    print("MESSAGE RECEIVED:", message.text)
+
 
 # ── Fake web server (Render ke liye) ─────────────────
 async def handle(request):
