@@ -1,13 +1,8 @@
-"""
-bot.py
-======
-Main entry point with fake web server for Render.
-"""
-
 import asyncio
 import logging
 import os
-from aiohttp import web
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from pyrogram import Client, idle
 import config.settings as cfg
@@ -18,12 +13,28 @@ from handlers import (
     register_admin_cmds,
 )
 
-# ── Logging ──────────────────────────────────────────
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+
+# ── Simple HTTP server (thread mein) ─────────────────
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running!")
+    def log_message(self, format, *args):
+        pass  # HTTP logs band karo
+
+def run_http_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), Handler)
+    logger.info(f"HTTP server started on port {port}")
+    server.serve_forever()
+
 
 # ── Pyrogram client ──────────────────────────────────
 app = Client(
@@ -33,41 +44,20 @@ app = Client(
     bot_token=cfg.BOT_TOKEN,
 )
 
-# ── Register all handlers ────────────────────────────
 register_start(app)
 register_join_request(app)
 register_channel_cmds(app)
 register_admin_cmds(app)
 
-@app.on_message()
-async def debug_all(client, message):
-    print("MESSAGE RECEIVED:", message.text)
 
-
-# ── Fake web server (Render ke liye) ─────────────────
-async def handle(request):
-    return web.Response(text="Bot is running! ✅")
-
-async def start_web_server():
-    port = int(os.environ.get("PORT", 8080))
-    web_app = web.Application()
-    web_app.router.add_get("/", handle)
-    runner = web.AppRunner(web_app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", port)
-    await site.start()
-    logger.info(f"✅ Web server started on port {port}")
-
-
-# ── Main ─────────────────────────────────────────────
 async def main():
-    # Start fake web server
-    await start_web_server()
+    # HTTP server alag thread mein start karo
+    t = threading.Thread(target=run_http_server, daemon=True)
+    t.start()
 
-    # Start bot
     await app.start()
 
-    me               = await app.get_me()
+    me = await app.get_me()
     cfg.BOT_USERNAME = me.username
 
     from utils.database import get_config, get_all_channels, count_users
@@ -80,7 +70,6 @@ async def main():
     logger.info(f"📢 Channels  : {len(all_ch)}")
     logger.info(f"👥 Users     : {total_users}")
     logger.info(f"⚡ Auto Mode : {'ON' if cfg_doc.get('req_mode', True) else 'OFF'}")
-    logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
     await idle()
     await app.stop()
