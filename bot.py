@@ -20,14 +20,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# ── Simple HTTP server (thread mein) ─────────────────
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Bot is running!")
     def log_message(self, format, *args):
-        pass  # HTTP logs band karo
+        pass
 
 def run_http_server():
     port = int(os.environ.get("PORT", 8080))
@@ -36,9 +35,9 @@ def run_http_server():
     server.serve_forever()
 
 
-# ── Pyrogram client ──────────────────────────────────
+# ── In-memory session (file nahi banega) ─────────────
 app = Client(
-    "auto_approve_bot",
+    ":memory:",
     api_id=cfg.API_ID,
     api_hash=cfg.API_HASH,
     bot_token=cfg.BOT_TOKEN,
@@ -51,7 +50,6 @@ register_admin_cmds(app)
 
 
 async def main():
-    # HTTP server alag thread mein start karo
     t = threading.Thread(target=run_http_server, daemon=True)
     t.start()
 
@@ -77,3 +75,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    
